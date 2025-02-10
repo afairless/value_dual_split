@@ -1,0 +1,32 @@
+[project]
+name = "cost_dual"
+version = "0.1.0"
+description = "Add a short description here"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[system-requirements]
+linux = "5.4.0"
+
+[tasks]
+
+[dependencies]
+polars = ">=1.21.0,<2"
+pandas = ">=2.2.3,<3"
+numpy = ">=2.2.2,<3"
+statsmodels = ">=0.14.4,<0.15"
+scipy = ">=1.15.1,<2"
+matplotlib = ">=3.10.0,<4"
+scikit-learn = ">=1.6.1,<2"
+pingouin = ">=0.5.5,<0.6"
+rpy2 = ">=3.5.11,<4"
+pyarrow = ">=19.0.0,<20"
+
+[pypi-dependencies]
+
+[feature.dev.dependencies]
+pytest = ">=8.3.4,<9"
+
+[environments]
+default = { features = ["dev"], solve-group = "prod" }
+prod = { features = [], solve-group = "prod" }
