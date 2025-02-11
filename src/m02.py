@@ -237,6 +237,19 @@ def get_results_given_parameter_set(
 
     group_variance = partition_group_variance(df, 'g_id', 'cv')
 
+    icc_df = pg.intraclass_corr(
+        data=df.to_pandas(), targets='i_id', raters='g_id', ratings='cv')
+
+    icc1 = icc_df['ICC'][0]
+    icc2 = icc_df['ICC'][1]
+    icc3 = icc_df['ICC'][2]
+    assert isinstance(icc1, float)
+    assert isinstance(icc2, float)
+    assert isinstance(icc3, float)
+    icc1 = float(icc1)
+    icc2 = float(icc2)
+    icc3 = float(icc3)
+
     optimization_input_df = df[['g_id', 'i_id', 'cv']]
 
     p_initial = 0.5         # Starting value for p
@@ -260,7 +273,8 @@ def get_results_given_parameter_set(
         group_variance.wthn_group_var,
         group_variance.total_var,
         group_variance.btwn_var_prop,
-        group_variance.wthn_var_prop]
+        group_variance.wthn_var_prop,
+        icc1, icc2, icc3]
 
     return result
 
@@ -285,7 +299,8 @@ def get_results_given_parameters(
     colnames = [
         'g_n', 'i_n', 'g_prop', 'g_prop_est', 'error', 'success',
         'btwn_group_var', 'wthn_group_var', 'total_var', 
-        'btwn_var_prop', 'wthn_var_prop']
+        'btwn_var_prop', 'wthn_var_prop',
+        'icc1', 'icc2', 'icc3']
     result_df = pl.DataFrame(results, orient='row')
     result_df.columns = colnames
 
@@ -376,8 +391,8 @@ def plot_metric_by_group_individual_ratios(
 
 def main():
 
-    pl.Config.set_tbl_cols(12)
-    pl.Config.set_tbl_rows(24)
+    # pl.Config.set_tbl_cols(12)
+    # pl.Config.set_tbl_rows(24)
 
     print('This is the saved main function.')
 
@@ -406,6 +421,10 @@ def main():
     save_dataframe_to_csv_and_parquet(result_df, filename_stem, output_path)
     # result_df = pl.read_parquet(output_path / 'results.parquet')
 
+
+    # PLOT RESULTS
+    ################################################## 
+
     result_df = result_df.with_columns(
         (pl.col('i_n') / (pl.col('g_n'))).alias('i_n_to_g_n'))
     # result_df.filter(pl.col('g_prop') == 0.5).sort('g_prop_est')
@@ -418,21 +437,39 @@ def main():
 
     output_filename = 'proportion_error_by_individual_to_group_ratios.png'
     metric_colname = 'error'
-    metric_label = 'Total error, error'
+    metric_label = 'Total error, ' + metric_colname
     plot_metric_by_group_individual_ratios(
         result_df, metric_colname, metric_label, output_path, output_filename)
     # shows that error declines as group proportion increases; do I need to
     #   re-scale the error?
 
-    output_filename = 'between_prop_by_individual_to_group_ratios.png'
     metric_colname = 'btwn_var_prop'
-    metric_label = 'Between-group variance proportion, btwn_var_prop'
+    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
+    metric_label = 'Between-group variance proportion, ' + metric_colname
     plot_metric_by_group_individual_ratios(
         result_df, metric_colname, metric_label, output_path, output_filename)
 
-    output_filename = 'total_var_by_individual_to_group_ratios.png'
     metric_colname = 'total_var'
-    metric_label = 'Total variance, total_var'
+    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
+    metric_label = 'Total variance, ' + metric_colname
+    plot_metric_by_group_individual_ratios(
+        result_df, metric_colname, metric_label, output_path, output_filename)
+
+    metric_colname = 'icc1'
+    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
+    metric_label = 'ICC1, ' + metric_colname
+    plot_metric_by_group_individual_ratios(
+        result_df, metric_colname, metric_label, output_path, output_filename)
+
+    metric_colname = 'icc2'
+    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
+    metric_label = 'ICC2, ' + metric_colname
+    plot_metric_by_group_individual_ratios(
+        result_df, metric_colname, metric_label, output_path, output_filename)
+
+    metric_colname = 'icc3'
+    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
+    metric_label = 'ICC3, ' + metric_colname
     plot_metric_by_group_individual_ratios(
         result_df, metric_colname, metric_label, output_path, output_filename)
 
