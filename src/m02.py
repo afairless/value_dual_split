@@ -389,6 +389,48 @@ def plot_metric_by_group_individual_ratios(
     plt.close()
 
 
+def plot_metric_by_metric(
+    result_df: pl.DataFrame, 
+    metric_x_colname: str, metric_x_label: str,
+    metric_y_colname: str, metric_y_label: str,
+    output_path: Path, output_filename: str) -> None:
+
+    plot_colnames = ['g_n', metric_x_colname, metric_y_colname, 'i_n_to_g_n']
+    plot_df = (
+        result_df[plot_colnames]
+        .group_by('g_n')
+        .agg([
+            pl.col(metric_x_colname), 
+            pl.col(metric_y_colname), 
+            pl.col('i_n_to_g_n').first()])).sort('g_n')
+
+    cmap = plt.get_cmap('viridis')
+    colors = [cmap(i / len(plot_df)) for i in range(len(plot_df))]
+
+    # plot horizontal line
+    plt.axhline(0, color='black', linewidth=0.5)
+    # plot vertical line
+    plt.axvline(0, color='black', linewidth=0.5)
+
+    for i, row in enumerate(plot_df.iter_rows(named=True)):
+        plt.scatter(
+            row[metric_x_colname], row[metric_y_colname], label=round(row['i_n_to_g_n'], 2), 
+            color=colors[i])
+        plt.plot(
+            row[metric_x_colname], row[metric_y_colname], linestyle='-', marker='o', 
+            color=colors[i])
+
+    plt.legend(title='i_n_to_g_n')
+    plt.xlabel(metric_x_label)
+    plt.ylabel(metric_y_label)
+    # plt.xlim(0, 1)
+
+    output_filepath = output_path / output_filename
+    plt.savefig(output_filepath)
+    plt.clf()
+    plt.close()
+
+
 def main():
 
     # pl.Config.set_tbl_cols(12)
@@ -409,7 +451,7 @@ def main():
     #     g_n, i_n, g_prop, 
     #     generate_sequential_integers, generate_sequential_integers)
 
-    total = 72 ** 2
+    total = 12 ** 2
     output_path = Path.cwd() / 'output' / ('combo_n_' + str(total))
     output_path.mkdir(exist_ok=True, parents=True)
 
@@ -436,42 +478,83 @@ def main():
     #   estimates
 
     output_filename = 'proportion_error_by_individual_to_group_ratios.png'
-    metric_colname = 'error'
-    metric_label = 'Total error, ' + metric_colname
+    metric_y_colname = 'error'
+    metric_y_label = 'Total error, ' + metric_y_colname
     plot_metric_by_group_individual_ratios(
-        result_df, metric_colname, metric_label, output_path, output_filename)
+        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
     # shows that error declines as group proportion increases; do I need to
     #   re-scale the error?
 
-    metric_colname = 'btwn_var_prop'
-    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
-    metric_label = 'Between-group variance proportion, ' + metric_colname
-    plot_metric_by_group_individual_ratios(
-        result_df, metric_colname, metric_label, output_path, output_filename)
 
-    metric_colname = 'total_var'
-    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
-    metric_label = 'Total variance, ' + metric_colname
-    plot_metric_by_group_individual_ratios(
-        result_df, metric_colname, metric_label, output_path, output_filename)
+    metric_pairs = [
+        ('g_prop', 'g_prop_est'), 
+        ('g_prop', 'error'), 
+        ('g_prop', 'btwn_var_prop'), 
+        ('g_prop', 'wthn_var_prop'), 
+        ('g_prop', 'total_var'), 
+        ('g_prop', 'icc1'), 
+        ('g_prop', 'icc2'), 
+        ('btwn_var_prop', 'icc1'), 
+        ('btwn_var_prop', 'icc2'), 
+        ('wthn_var_prop', 'icc1'), 
+        ('wthn_var_prop', 'icc2'), 
+        ('icc1', 'icc2')]
 
-    metric_colname = 'icc1'
-    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
-    metric_label = 'ICC1, ' + metric_colname
-    plot_metric_by_group_individual_ratios(
-        result_df, metric_colname, metric_label, output_path, output_filename)
+    for metric_x_colname, metric_y_colname in metric_pairs:
 
-    metric_colname = 'icc2'
-    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
-    metric_label = 'ICC2, ' + metric_colname
-    plot_metric_by_group_individual_ratios(
-        result_df, metric_colname, metric_label, output_path, output_filename)
+        output_filename = metric_y_colname + '_by_' + metric_x_colname + '.png'
+        plot_metric_by_metric(
+            result_df, 
+            metric_x_colname, metric_x_colname, 
+            metric_y_colname, metric_y_colname, 
+            output_path, output_filename)
 
-    metric_colname = 'icc3'
-    output_filename = metric_colname + '_by_individual_to_group_ratios.png'
-    metric_label = 'ICC3, ' + metric_colname
+    # metric_x_colname = 'btwn_var_prop'
+    # metric_y_colname = 'icc2'
+    # output_filename = metric_y_colname + '_by_' + metric_x_colname + '.png'
+    # plot_metric_by_metric(
+    #     result_df, 
+    #     metric_x_colname, metric_x_colname, 
+    #     metric_y_colname, metric_y_colname, 
+    #     output_path, output_filename)
+
+
+    '''
+    metric_y_colname = 'btwn_var_prop'
+    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
+    metric_y_label = 'Between-group variance proportion, ' + metric_y_colname
     plot_metric_by_group_individual_ratios(
-        result_df, metric_colname, metric_label, output_path, output_filename)
+        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
+
+    metric_y_colname = 'total_var'
+    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
+    metric_y_label = 'Total variance, ' + metric_y_colname
+    plot_metric_by_group_individual_ratios(
+        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
+
+    metric_y_colname = 'icc1'
+    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
+    metric_y_label = 'ICC1, ' + metric_y_colname
+    plot_metric_by_group_individual_ratios(
+        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
+
+    metric_y_colname = 'icc2'
+    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
+    metric_y_label = 'ICC2, ' + metric_y_colname
+    plot_metric_by_group_individual_ratios(
+        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
+
+    metric_y_colname = 'icc3'
+    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
+    metric_y_label = 'ICC3, ' + metric_y_colname
+    plot_metric_by_group_individual_ratios(
+        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
+    '''
+
+
+
+
+
 
 
 if __name__ == '__main__':
