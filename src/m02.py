@@ -438,7 +438,46 @@ def plot_metric_by_metric(
     plt.close()
 
 
-def main():
+def plot_combined_values_by_group_proportion_for_groups(
+    plot_df: pl.DataFrame, colnames: list[str], title: str, output_path: Path, 
+    output_filename: str) -> None:
+    """
+    Plot the combined values for each group as a function of the group 
+        proportions
+    TODO:
+        Add spacing between groups
+    """
+
+    df_groups = (
+        plot_df
+        .group_by([colnames[0], colnames[2]])
+        .agg(pl.col(colnames[1]))
+        .sort(colnames[0], colnames[2]))
+    df_groups.columns = ['g_id', 'g_prop', 'cv']
+
+    cmap = plt.get_cmap('viridis')
+    g_prop_n = df_groups[colnames[2]].n_unique()
+    colors = [cmap(i / g_prop_n) for i in range(g_prop_n)]
+
+    if len(df_groups['cv'][0]) > 300:
+        alpha = 0.01
+    else:
+        alpha = 0.2
+
+    for i, row in enumerate(df_groups.iter_rows(named=True)):
+        plt.scatter(
+            [i] * len(row['cv']), row['cv'], label=row['g_prop'], 
+            alpha=alpha, c=colors[i%g_prop_n])
+
+    plt.title(title)
+
+    output_filepath = output_path / output_filename
+    plt.savefig(output_filepath)
+    plt.clf()
+    plt.close()
+
+
+def main_analysis(total: int, output_path: Path):
 
     # pl.Config.set_tbl_cols(12)
     # pl.Config.set_tbl_rows(24)
@@ -457,10 +496,6 @@ def main():
     # df = get_all_value_combinations(
     #     g_n, i_n, g_prop, 
     #     generate_sequential_integers, generate_sequential_integers)
-
-    total = 72 ** 2
-    output_path = Path.cwd() / 'output' / ('combo_n_' + str(total))
-    output_path.mkdir(exist_ok=True, parents=True)
 
     factor_df = calculate_factors(total)
     g_props = [e/10 for e in range(1, 10, 2)]
@@ -559,10 +594,49 @@ def main():
     '''
 
 
+def plot_combined_values_by_group_proportion(output_path: Path):
+    """
+    Plot the combined values for each group as a function of the group 
+        proportions
+    """
 
+    df_filepaths = output_path.glob('*.parquet')
+    df_filepaths = [
+        e for e in df_filepaths if e.stem[:3] == 'gn_' and 'gprop' in e.stem]
 
+    df_filename_groups = list(
+        set([e.stem.split('gprop')[0] for e in df_filepaths]))
 
+    for df_filename_group in df_filename_groups:
+
+        df_group_filepaths = [
+            e for e in df_filepaths if df_filename_group in e.stem]
+
+        colnames = ['g_id', 'cv', 'g_prop']
+        dfs = [
+            pl.read_parquet(e)
+            .with_columns(pl.lit(e.stem.split('gprop_')[1]).alias(colnames[-1]))
+            .select(colnames)
+            for e in df_group_filepaths]
+
+        # make sure that all the DataFrames have the same number of groups
+        g_ns = pl.Series([e['g_id'].n_unique() for e in dfs])
+        assert g_ns.n_unique() == 1
+
+        df = pl.concat(dfs)
+        g_props_str = ','.join(df['g_prop'].unique().sort())
+
+        title = df_filename_group + 'g_prop_' + g_props_str
+        output_filename = df_filename_group[:-1] + '.png'
+        plot_combined_values_by_group_proportion_for_groups(
+            df, colnames, title, output_path, output_filename)
 
 
 if __name__ == '__main__':
-    main()
+
+    total = 72 ** 2
+    output_path = Path.cwd() / 'output' / ('combo_n_' + str(total))
+    output_path.mkdir(exist_ok=True, parents=True)
+
+    main_analysis(total, output_path)
+    plot_combined_values_by_group_proportion(output_path)
