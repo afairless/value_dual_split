@@ -280,7 +280,8 @@ def get_results_given_parameter_set(
 
 
 def get_results_given_parameters(
-    factor_df: pl.DataFrame, g_props: list[float]) -> pl.DataFrame:
+    factor_df: pl.DataFrame, g_props: list[float], output_path: Path
+    ) -> pl.DataFrame:
 
     results = []
     for g_n, i_n in factor_df.iter_rows():
@@ -291,6 +292,12 @@ def get_results_given_parameters(
             df = get_all_value_combinations(
                 g_n, i_n, g_prop, 
                 generate_uniform_random_floats, generate_uniform_random_floats)
+
+            filename_stem = (
+                'gn_' + str(g_n) + 
+                '_in_' + str(i_n) + 
+                '_gprop_' + str(g_prop))
+            save_dataframe_to_csv_and_parquet(df, filename_stem, output_path)
 
             result = get_results_given_parameter_set(g_n, i_n, g_prop, df)
 
@@ -451,13 +458,13 @@ def main():
     #     g_n, i_n, g_prop, 
     #     generate_sequential_integers, generate_sequential_integers)
 
-    total = 12 ** 2
+    total = 72 ** 2
     output_path = Path.cwd() / 'output' / ('combo_n_' + str(total))
     output_path.mkdir(exist_ok=True, parents=True)
 
     factor_df = calculate_factors(total)
     g_props = [e/10 for e in range(1, 10, 2)]
-    result_df = get_results_given_parameters(factor_df, g_props)
+    result_df = get_results_given_parameters(factor_df, g_props, output_path)
 
     filename_stem = 'results'
     save_dataframe_to_csv_and_parquet(result_df, filename_stem, output_path)
