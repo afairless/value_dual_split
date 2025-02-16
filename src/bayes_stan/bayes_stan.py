@@ -44,12 +44,15 @@ def write_list_to_text_file(
 
 
 def dummy_code_two_level_hierarchical_categories(
-    group_n: int, individual_n: int) -> np.array:
+    group_n: int, individual_n: int) -> np.ndarray:
     """
     Create a dummy-coded (one-hot-encoded) Numpy array for two-level 
         hierarchical categories, so that every higher-level category is paired
         with every lower-level category
     """
+
+    assert group_n > 0
+    assert individual_n > 0
 
     group_eye_array = np.eye(group_n)
     group_array = np.repeat(group_eye_array, individual_n, axis=0)
@@ -456,7 +459,6 @@ def main():
     # all samples for all parameters, predicted values, and diagnostics
     #   number of rows = number of 'iter' in 'StanModel.sampling' call
     fit_df = fit_model.to_dataframe()
-    fit_df.iloc[:, 3:9]
 
     save_summaries(fit_df, fit_model, output_path)
 
