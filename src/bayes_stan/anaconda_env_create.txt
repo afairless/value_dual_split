@@ -1,0 +1,9 @@
+conda create --name stan pandas numpy scipy matplotlib seaborn
+
+source activate stan
+
+conda install -c conda-forge pystan
+conda install -c conda-forge arviz
+conda install -c conda-forge plotnine
+
+conda env export > environment.yml
