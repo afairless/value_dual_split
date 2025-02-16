@@ -434,6 +434,12 @@ def main():
 
     df = pd.read_parquet(df_filepath)
 
+    # df = pd.DataFrame({
+    #     'g_id': [0, 0, 1, 1],
+    #     'i_id': [0, 1, 0, 1],
+    #     'cv': [0.40, 0.25, 0.65, 0.50]})
+    df['g_v'].unique()
+
     # verify that all group IDs appear the same number of times
     assert df['g_id'].value_counts().nunique() == 1
     assert df['i_id'].value_counts().nunique() == 1
@@ -441,10 +447,16 @@ def main():
     n = len(df)
     g_n = df['g_id'].value_counts().unique()[0]
     i_n = df['i_id'].value_counts().unique()[0]
+    assert isinstance(g_n, int)
+    assert isinstance(i_n, int)
     x = dummy_code_two_level_hierarchical_categories(g_n, i_n)
+    assert x.shape[0] == n
+    assert x.shape[1] == g_n + i_n
+    g_x = x[:, :g_n]
+    i_x = x[:, g_n:]
     y = df['cv'].values
 
-    stan_data = {'N': n, 'G': g_n, 'I': i_n, 'x': x, 'y': y}
+    stan_data = {'N': n, 'G': g_n, 'I': i_n, 'g_x': g_x, 'i_x': i_x, 'y': y}
     stan_filename = 'bayes_stan.stan'
     stan_filepath = Path.cwd() / 'src' / 'stan_code' / stan_filename
 
@@ -463,6 +475,17 @@ def main():
     save_summaries(fit_df, fit_model, output_path)
 
  
+  # matrix[N, 1] g_vs;
+  # matrix[N, 1] i_vs;
+
+  # vector[N] g_vs;
+  # vector[N] i_vs;
+  # vector[2] ps;
+
+  # // g_vs = g_x * g_v;
+  # // i_vs = i_x * i_v;
+  # // ps = [g_prob, i_prob];
+  # // vs = append_col(g_vs, i_vs);
 
 
 
