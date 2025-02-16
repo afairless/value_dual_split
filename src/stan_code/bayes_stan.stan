@@ -12,12 +12,13 @@ parameters {
   vector<lower=0, upper=1>[I] i_v;
 }
 transformed parameters {
-  real<lower=0, upper=1> i_prob;
-  i_prob = 1 - g_prob;
+  vector[2] ps;
+  ps[1] = g_prob;
+  ps[2] = 1 - g_prob;
 }
 model {
   g_prob ~ uniform(0, 1);
   g_v ~ uniform(0, 1);
   i_v ~ uniform(0, 1);
-  y ~ normal(append_col(g_x * g_v, i_x * i_v) * to_vector([g_prob, i_prob]), 1);
+  y ~ normal(append_col(g_x * g_v, i_x * i_v) * ps, 1);
 }
