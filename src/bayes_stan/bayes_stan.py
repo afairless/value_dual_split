@@ -417,6 +417,27 @@ def save_plots(
     plt.close()
 
 
+def plot_group_probability_true_vs_posterior(
+    fit_df: pd.DataFrame, g_prop: float, title: str, output_filepath: Path
+    ) -> None:
+    """
+    Plot the posterior distribution of the group probability against the true 
+        group probability
+    """
+
+    plt.violinplot(fit_df['g_prob'], showmeans=True, showmedians=True)
+    plt.scatter([1]*len(fit_df), fit_df['g_prob'], alpha=0.2)
+    plt.scatter(1, g_prop, color='orange', s=100, alpha=0.9)
+ 
+    plt.title(title)
+    txt = 'orange dot marks true group probability'
+    plt.suptitle(txt)
+
+    plt.savefig(output_filepath)
+    plt.clf()
+    plt.close()
+
+
 def main():
 
     total = 72 ** 2
@@ -452,8 +473,6 @@ def main():
     i_x = x[:, g_n:]
     y = df['cv'].values
 
-    df['g_v'].unique()
-    df['i_v'].unique()
     stan_data = {'N': n, 'G': g_n, 'I': i_n, 'g_x': g_x, 'i_x': i_x, 'y': y}
     stan_filename = 'bayes_stan.stan'
     stan_filepath = Path.cwd() / 'src' / 'stan_code' / stan_filename
@@ -473,6 +492,33 @@ def main():
     save_summaries(fit_df, fit_model, output_path)
     save_plots(fit_df, fit_model, output_path)
 
+    fit_model.stansummary()
+    df[['g_id', 'g_v']].groupby('g_id').mean().reset_index()
+    df[['i_id', 'i_v']].groupby('i_id').mean().reset_index()
+    g_prop = float(df_filepath.stem.split('gprop_')[1])
+    fit_df.columns
+    mean_error = fit_df['g_prob'].mean() - g_prop
+    median_error = fit_df['g_prob'].median() - g_prop
+
+
+    title = df_filepath.stem
+    output_filename = 'group_probability_true_vs_posterior.png'
+    output_filepath = output_path / output_filename
+    plot_group_probability_true_vs_posterior(
+        fit_df, g_prop, title, output_filepath)
+
+
+ 
+    plt.violinplot(fit_df['g_prob'], showmeans=True, showmedians=True)
+    plt.scatter([1]*len(fit_df), fit_df['g_prob'], alpha=0.2)
+    plt.scatter(1, g_prop, color='orange', s=100, alpha=0.9)
+    plt.show()
+ 
+    plt.clf()
+    plt.close()
+ 
+    plt.scatter([1]*len(fit_df), fit_df['g_prob'], alpha=0.2)
+    plt.show()
  
     # matrix[N, 1] g_vs;
     # matrix[N, 1] i_vs;
