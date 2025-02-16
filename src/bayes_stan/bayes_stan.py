@@ -90,21 +90,19 @@ def save_summaries(fit_df: pd.DataFrame, fit_model, output_path: Path):
 
 
 def save_plots(
-    x: np.ndarray, y: np.ndarray, 
-    fit_df: pd.DataFrame, fit_model, 
-    output_path: Path):
+    fit_df: pd.DataFrame, fit_model, output_path: Path):
 
     # plot parameters
     ##################################################
 
     az_stan_data = az.from_pystan(
         posterior=fit_model,
-        posterior_predictive='predicted_y_given_x',
+        # posterior_predictive='predicted_y_given_x',
         observed_data=['y'])
 
 
     az.style.use('arviz-darkgrid')
-    parameter_names = ['alpha', 'beta', 'sigma']
+    parameter_names = ['g_prob']
     show = False
 
 
@@ -144,7 +142,7 @@ def save_plots(
 
     print('Plotting distribution')
     az.plot_dist(
-        fit_df[parameter_names[1]+'[1]'], rug=True,
+        fit_df[parameter_names[0]], rug=True,
         quantiles=[0.25, 0.5, 0.75], show=show)
     output_filepath = output_path / 'plot_distribution.png'
     plt.savefig(output_filepath)
@@ -152,7 +150,7 @@ def save_plots(
     plt.close()
 
     az.plot_dist(
-        fit_df[parameter_names[1]+'[1]'], rug=True, cumulative=True,
+        fit_df[parameter_names[0]], rug=True, cumulative=True,
         quantiles=[0.25, 0.5, 0.75], show=show)
     output_filepath = output_path / 'plot_distribution_cumulative.png'
     plt.savefig(output_filepath)
@@ -216,6 +214,7 @@ def save_plots(
     plt.close()
 
 
+    """
     # HPD plot
     ##################################################
 
@@ -236,6 +235,7 @@ def save_plots(
         plt.savefig(output_filepath)
         plt.clf()
         plt.close()
+    """
 
 
     # plot KDE
@@ -244,7 +244,7 @@ def save_plots(
     print('Plotting KDE plots')
 
     az.plot_kde(
-        fit_df[parameter_names[0]], fit_df[parameter_names[1]+'[1]'],
+        fit_df[parameter_names[0]],
         contour=True, show=show)
     output_filepath = output_path / 'plot_kde_contour.png'
     plt.savefig(output_filepath)
@@ -252,7 +252,7 @@ def save_plots(
     plt.close()
 
     az.plot_kde(
-        fit_df[parameter_names[0]], fit_df[parameter_names[1]+'[1]'],
+        fit_df[parameter_names[0]],
         contour=False, show=show)
     output_filepath = output_path / 'plot_kde_no_contour.png'
     plt.savefig(output_filepath)
@@ -286,6 +286,7 @@ def save_plots(
 
 
 
+    """
     # plot pair
     ##################################################
 
@@ -319,6 +320,7 @@ def save_plots(
     plt.savefig(output_filepath)
     plt.clf()
     plt.close()
+    """
 
 
     # plot parameters in parallel
@@ -434,12 +436,6 @@ def main():
 
     df = pd.read_parquet(df_filepath)
 
-    # df = pd.DataFrame({
-    #     'g_id': [0, 0, 1, 1],
-    #     'i_id': [0, 1, 0, 1],
-    #     'cv': [0.40, 0.25, 0.65, 0.50]})
-    df['g_v'].unique()
-
     # verify that all group IDs appear the same number of times
     assert df['g_id'].value_counts().nunique() == 1
     assert df['i_id'].value_counts().nunique() == 1
@@ -456,15 +452,17 @@ def main():
     i_x = x[:, g_n:]
     y = df['cv'].values
 
+    df['g_v'].unique()
+    df['i_v'].unique()
     stan_data = {'N': n, 'G': g_n, 'I': i_n, 'g_x': g_x, 'i_x': i_x, 'y': y}
     stan_filename = 'bayes_stan.stan'
     stan_filepath = Path.cwd() / 'src' / 'stan_code' / stan_filename
 
     stan_model = pystan.StanModel(file=stan_filepath.as_posix())
-    # fit_model = stan_model.sampling(
-    #    data=stan_data, iter=300, chains=1, warmup=150, thin=1, seed=708869)
     fit_model = stan_model.sampling(
-       data=stan_data, iter=2000, chains=4, warmup=1000, thin=1, seed=22074)
+       data=stan_data, iter=300, chains=1, warmup=150, thin=1, seed=708869)
+    # fit_model = stan_model.sampling(
+    #    data=stan_data, iter=2000, chains=4, warmup=1000, thin=1, seed=22074)
     # fit_model = stan_model.sampling(
     #     data=stan_data, iter=2000, chains=4, warmup=1000, thin=2, seed=22074)
 
@@ -473,19 +471,16 @@ def main():
     fit_df = fit_model.to_dataframe()
 
     save_summaries(fit_df, fit_model, output_path)
+    save_plots(fit_df, fit_model, output_path)
 
  
-  # matrix[N, 1] g_vs;
-  # matrix[N, 1] i_vs;
-
-  # vector[N] g_vs;
-  # vector[N] i_vs;
-  # vector[2] ps;
-
-  # // g_vs = g_x * g_v;
-  # // i_vs = i_x * i_v;
-  # // ps = [g_prob, i_prob];
-  # // vs = append_col(g_vs, i_vs);
+    # matrix[N, 1] g_vs;
+    # matrix[N, 1] i_vs;
+    # vector[N] g_vs;
+    # vector[N] i_vs;
+    # g_vs = g_x * g_v;
+    # i_vs = i_x * i_v;
+    # vs = append_col(g_vs, i_vs);
 
 
 
