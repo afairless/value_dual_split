@@ -504,6 +504,8 @@ def main():
     input_path = Path.cwd() / 'output' / ('combo_n_' + str(total))
     stan_filename = 'bayes_stan.stan'
     stan_filepath = Path.cwd() / 'src' / 'stan_code' / stan_filename
+    output_path = Path.cwd() / 'output'
+    output_path.mkdir(exist_ok=True, parents=True)
 
 
     df_filepaths = input_path.glob('*.parquet')
@@ -518,12 +520,13 @@ def main():
     df_group_filepaths = [
         e for e in df_filepaths if df_filename_group_stem in e.stem]
 
+    probability_estimation_metrics = []
     for df_filepath in df_group_filepaths:
 
         print('Processing:', df_filepath.stem)
 
-        output_path = Path.cwd() / 'output' / df_filepath.stem.replace('.', '_')
-        output_path.mkdir(exist_ok=True, parents=True)
+        output_subpath = output_path / df_filepath.stem.replace('.', '_')
+        output_subpath.mkdir(exist_ok=True, parents=True)
 
         df = pd.read_parquet(df_filepath)
         stan_data = get_stan_data_from_df(df)
@@ -540,22 +543,23 @@ def main():
         #   number of rows = number of 'iter' in 'StanModel.sampling' call
         fit_df = fit_model.to_dataframe()
 
-        save_summaries(fit_df, fit_model, output_path)
-        save_plots(fit_df, fit_model, output_path)
+        save_summaries(fit_df, fit_model, output_subpath)
+        save_plots(fit_df, fit_model, output_subpath)
 
-        fit_model.stansummary()
+        # fit_model.stansummary()
         true_g_v = df[['g_id', 'g_v']].groupby('g_id').mean()
         true_i_v = df[['i_id', 'i_v']].groupby('i_id').mean()
         g_prop = float(df_filepath.stem.split('gprop_')[1])
+        mean_error = fit_df['g_prob'].mean() - g_prop
+        median_error = fit_df['g_prob'].median() - g_prop
+        probability_estimation_metrics.append(
+            (df_filepath.stem, g_prop, mean_error, median_error))
 
         # fit_df.columns
-        # mean_error = fit_df['g_prob'].mean() - g_prop
-        # median_error = fit_df['g_prob'].median() - g_prop
-
 
         title = df_filepath.stem
         output_filename = 'group_probability_true_vs_posterior.png'
-        output_filepath = output_path / output_filename
+        output_filepath = output_subpath / output_filename
         plot_group_probability_true_vs_posterior(
             fit_df, g_prop, title, output_filepath)
 
@@ -566,7 +570,7 @@ def main():
         colnames = colnames[:v_n]
         title = df_filepath.stem
         output_filename = 'group_values_true_vs_posterior.png'
-        output_filepath = output_path / output_filename
+        output_filepath = output_subpath / output_filename
         plot_values_true_vs_posterior(
             fit_df, colnames, true_g_v, title, output_filepath)
 
@@ -574,10 +578,22 @@ def main():
         colnames = colnames[:v_n]
         title = df_filepath.stem
         output_filename = 'individual_values_true_vs_posterior.png'
-        output_filepath = output_path / output_filename
+        output_filepath = output_subpath / output_filename
         plot_values_true_vs_posterior(
             fit_df, colnames, true_i_v, title, output_filepath)
 
+
+    probability_estimation_df = pd.DataFrame(probability_estimation_metrics)
+    colnames = ['filename', 'true_g_prop', 'mean_error', 'median_error']
+    probability_estimation_df.columns = colnames 
+
+    output_filename = df_filename_group_stem + 'g_prop_error.csv'
+    output_filepath = output_path / output_filename
+    probability_estimation_df.to_csv(output_filepath)
+
+    output_filename = df_filename_group_stem + 'g_prop_error.parquet'
+    output_filepath = output_path / output_filename
+    probability_estimation_df.to_parquet(output_filepath)
 
 
 
