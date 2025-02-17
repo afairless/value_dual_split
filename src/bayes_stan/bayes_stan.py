@@ -1,12 +1,12 @@
 #! /usr/bin/env python3
 
-import random
 import pystan
 import arviz as az
 import numpy as np
 import pandas as pd
 
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 
@@ -61,6 +61,41 @@ def dummy_code_two_level_hierarchical_categories(
     combined_array = np.concatenate((group_array, individual_array), axis=1)
 
     return combined_array
+
+
+def get_stan_data_from_df(df: pd.DataFrame) -> dict:
+    """
+    Create a dictionary from DataFrame of data to be passed to a Stan model
+    """
+
+    # verify that all group IDs appear the same number of times
+    g_id_srs = df['g_id']
+    assert isinstance(g_id_srs, pd.Series)
+    assert g_id_srs.value_counts().nunique() == 1
+
+    i_id_srs = df['i_id']
+    assert isinstance(i_id_srs, pd.Series)
+    assert i_id_srs.value_counts().nunique() == 1
+
+    # one-hot encode groups and individuals
+    n = len(df)
+    g_n = g_id_srs.value_counts().unique()[0]
+    i_n = i_id_srs.value_counts().unique()[0]
+    assert isinstance(g_n, np.int64)
+    assert isinstance(i_n, np.int64)
+    x = dummy_code_two_level_hierarchical_categories(g_n, i_n)
+    assert x.shape[0] == n
+    assert x.shape[1] == g_n + i_n
+    g_x = x[:, :g_n]
+    i_x = x[:, g_n:]
+
+    cv_id_srs = df['i_id']
+    assert isinstance(cv_id_srs, pd.Series)
+    y = cv_id_srs.values
+
+    stan_data = {'N': n, 'G': g_n, 'I': i_n, 'g_x': g_x, 'i_x': i_x, 'y': y}
+
+    return stan_data
 
 
 def save_summaries(fit_df: pd.DataFrame, fit_model, output_path: Path):
@@ -467,6 +502,9 @@ def main():
 
     total = 72 ** 2
     input_path = Path.cwd() / 'output' / ('combo_n_' + str(total))
+    stan_filename = 'bayes_stan.stan'
+    stan_filepath = Path.cwd() / 'src' / 'stan_code' / stan_filename
+
 
     df_filepaths = input_path.glob('*.parquet')
     df_filepaths = [
@@ -474,90 +512,74 @@ def main():
 
     df_filename_groups = list(
         set([e.stem.split('gprop')[0] for e in df_filepaths]))
-    df_filepath = [
-        e for e in df_filepaths if 'gn_72_in_72_gprop_0.9' in e.stem][0]
+    df_filename_group_stem = df_filename_groups[0]
+    # df_filepath = [
+    #     e for e in df_filepaths if 'gn_72_in_72_gprop_0.9' in e.stem][0]
+    df_group_filepaths = [
+        e for e in df_filepaths if df_filename_group_stem in e.stem]
 
-    output_path = Path.cwd() / 'output' / df_filepath.stem.replace('.', '_')
-    output_path.mkdir(exist_ok=True, parents=True)
+    for df_filepath in df_group_filepaths:
 
-    df = pd.read_parquet(df_filepath)
+        print('Processing:', df_filepath.stem)
 
-    # verify that all group IDs appear the same number of times
-    assert df['g_id'].value_counts().nunique() == 1
-    assert df['i_id'].value_counts().nunique() == 1
+        output_path = Path.cwd() / 'output' / df_filepath.stem.replace('.', '_')
+        output_path.mkdir(exist_ok=True, parents=True)
 
-    n = len(df)
-    g_n = df['g_id'].value_counts().unique()[0]
-    i_n = df['i_id'].value_counts().unique()[0]
-    assert isinstance(g_n, int)
-    assert isinstance(i_n, int)
-    x = dummy_code_two_level_hierarchical_categories(g_n, i_n)
-    assert x.shape[0] == n
-    assert x.shape[1] == g_n + i_n
-    g_x = x[:, :g_n]
-    i_x = x[:, g_n:]
-    y = df['cv'].values
+        df = pd.read_parquet(df_filepath)
+        stan_data = get_stan_data_from_df(df)
+        stan_model = pystan.StanModel(file=stan_filepath.as_posix())
 
-    stan_data = {'N': n, 'G': g_n, 'I': i_n, 'g_x': g_x, 'i_x': i_x, 'y': y}
-    stan_filename = 'bayes_stan.stan'
-    stan_filepath = Path.cwd() / 'src' / 'stan_code' / stan_filename
+        fit_model = stan_model.sampling(
+           data=stan_data, iter=300, chains=1, warmup=150, thin=1, seed=708869)
+        # fit_model = stan_model.sampling(
+        #    data=stan_data, iter=2000, chains=4, warmup=1000, thin=1, seed=22074)
+        # fit_model = stan_model.sampling(
+        #     data=stan_data, iter=2000, chains=4, warmup=1000, thin=2, seed=22074)
 
-    stan_model = pystan.StanModel(file=stan_filepath.as_posix())
-    fit_model = stan_model.sampling(
-       data=stan_data, iter=300, chains=1, warmup=150, thin=1, seed=708869)
-    # fit_model = stan_model.sampling(
-    #    data=stan_data, iter=2000, chains=4, warmup=1000, thin=1, seed=22074)
-    # fit_model = stan_model.sampling(
-    #     data=stan_data, iter=2000, chains=4, warmup=1000, thin=2, seed=22074)
+        # all samples for all parameters, predicted values, and diagnostics
+        #   number of rows = number of 'iter' in 'StanModel.sampling' call
+        fit_df = fit_model.to_dataframe()
 
-    # all samples for all parameters, predicted values, and diagnostics
-    #   number of rows = number of 'iter' in 'StanModel.sampling' call
-    fit_df = fit_model.to_dataframe()
+        save_summaries(fit_df, fit_model, output_path)
+        save_plots(fit_df, fit_model, output_path)
 
-    save_summaries(fit_df, fit_model, output_path)
-    save_plots(fit_df, fit_model, output_path)
+        fit_model.stansummary()
+        true_g_v = df[['g_id', 'g_v']].groupby('g_id').mean()
+        true_i_v = df[['i_id', 'i_v']].groupby('i_id').mean()
+        g_prop = float(df_filepath.stem.split('gprop_')[1])
 
-    fit_model.stansummary()
-    true_g_v = df[['g_id', 'g_v']].groupby('g_id').mean()
-    true_i_v = df[['i_id', 'i_v']].groupby('i_id').mean()
-    g_prop = float(df_filepath.stem.split('gprop_')[1])
-    fit_df.columns
-    mean_error = fit_df['g_prob'].mean() - g_prop
-    median_error = fit_df['g_prob'].median() - g_prop
+        # fit_df.columns
+        # mean_error = fit_df['g_prob'].mean() - g_prop
+        # median_error = fit_df['g_prob'].median() - g_prop
 
 
-    title = df_filepath.stem
-    output_filename = 'group_probability_true_vs_posterior.png'
-    output_filepath = output_path / output_filename
-    plot_group_probability_true_vs_posterior(
-        fit_df, g_prop, title, output_filepath)
+        title = df_filepath.stem
+        output_filename = 'group_probability_true_vs_posterior.png'
+        output_filepath = output_path / output_filename
+        plot_group_probability_true_vs_posterior(
+            fit_df, g_prop, title, output_filepath)
 
 
-    colnames = [e for e in fit_df.columns if 'g_v' in e]
-    title = df_filepath.stem
-    output_filename = 'group_values_true_vs_posterior.png'
-    output_filepath = output_path / output_filename
-    plot_values_true_vs_posterior(
-        fit_df, colnames, true_g_v, title, output_filepath)
+        # limit number of columns to plot, so plot is readable
+        v_n = 72
+        colnames = [e for e in fit_df.columns if 'g_v' in e]
+        colnames = colnames[:v_n]
+        title = df_filepath.stem
+        output_filename = 'group_values_true_vs_posterior.png'
+        output_filepath = output_path / output_filename
+        plot_values_true_vs_posterior(
+            fit_df, colnames, true_g_v, title, output_filepath)
 
-    colnames = [e for e in fit_df.columns if 'i_v' in e]
-    title = df_filepath.stem
-    output_filename = 'individual_values_true_vs_posterior.png'
-    output_filepath = output_path / output_filename
-    plot_values_true_vs_posterior(
-        fit_df, colnames, true_i_v, title, output_filepath)
+        colnames = [e for e in fit_df.columns if 'i_v' in e]
+        colnames = colnames[:v_n]
+        title = df_filepath.stem
+        output_filename = 'individual_values_true_vs_posterior.png'
+        output_filepath = output_path / output_filename
+        plot_values_true_vs_posterior(
+            fit_df, colnames, true_i_v, title, output_filepath)
 
 
 
-    assert len(colnames) == len(true_g_v)
- 
-    fig_width = max(60, len(colnames))
-    plt.figure(figsize=(fig_width, 6))
-    plt.violinplot(fit_df[colnames].values, showmeans=True, showmedians=True)
-    plt.scatter(range(1, len(true_g_v)+1), true_g_v, color='orange', s=100, alpha=0.9)
-    plt.tight_layout()
-    plt.show()
- 
 
 
  
