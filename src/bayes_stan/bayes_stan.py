@@ -438,6 +438,31 @@ def plot_group_probability_true_vs_posterior(
     plt.close()
 
 
+def plot_values_true_vs_posterior(
+    fit_df: pd.DataFrame, colnames: list, true_g_v: pd.Series, title: str, 
+    output_filepath: Path) -> None:
+    """
+    Plot the posterior distribution of the values against the true value 
+    """
+
+    assert len(colnames) == len(true_g_v)
+    posteriors_df = fit_df[colnames]
+    assert isinstance(posteriors_df, pd.DataFrame)
+    true_g_v_xs = range(1, len(true_g_v)+1)
+ 
+    fig_width = max(60, len(colnames))
+    plt.figure(figsize=(fig_width, 6))
+    plt.violinplot(posteriors_df.values, showmeans=True, showmedians=True)
+    plt.scatter(true_g_v_xs, true_g_v, color='orange', s=100, alpha=0.9)
+    plt.tight_layout()
+ 
+    plt.title(title)
+
+    plt.savefig(output_filepath)
+    plt.clf()
+    plt.close()
+
+
 def main():
 
     total = 72 ** 2
@@ -493,8 +518,8 @@ def main():
     save_plots(fit_df, fit_model, output_path)
 
     fit_model.stansummary()
-    df[['g_id', 'g_v']].groupby('g_id').mean().reset_index()
-    df[['i_id', 'i_v']].groupby('i_id').mean().reset_index()
+    true_g_v = df[['g_id', 'g_v']].groupby('g_id').mean()
+    true_i_v = df[['i_id', 'i_v']].groupby('i_id').mean()
     g_prop = float(df_filepath.stem.split('gprop_')[1])
     fit_df.columns
     mean_error = fit_df['g_prob'].mean() - g_prop
@@ -508,17 +533,33 @@ def main():
         fit_df, g_prop, title, output_filepath)
 
 
+    colnames = [e for e in fit_df.columns if 'g_v' in e]
+    title = df_filepath.stem
+    output_filename = 'group_values_true_vs_posterior.png'
+    output_filepath = output_path / output_filename
+    plot_values_true_vs_posterior(
+        fit_df, colnames, true_g_v, title, output_filepath)
+
+    colnames = [e for e in fit_df.columns if 'i_v' in e]
+    title = df_filepath.stem
+    output_filename = 'individual_values_true_vs_posterior.png'
+    output_filepath = output_path / output_filename
+    plot_values_true_vs_posterior(
+        fit_df, colnames, true_i_v, title, output_filepath)
+
+
+
+    assert len(colnames) == len(true_g_v)
  
-    plt.violinplot(fit_df['g_prob'], showmeans=True, showmedians=True)
-    plt.scatter([1]*len(fit_df), fit_df['g_prob'], alpha=0.2)
-    plt.scatter(1, g_prop, color='orange', s=100, alpha=0.9)
+    fig_width = max(60, len(colnames))
+    plt.figure(figsize=(fig_width, 6))
+    plt.violinplot(fit_df[colnames].values, showmeans=True, showmedians=True)
+    plt.scatter(range(1, len(true_g_v)+1), true_g_v, color='orange', s=100, alpha=0.9)
+    plt.tight_layout()
     plt.show()
  
-    plt.clf()
-    plt.close()
- 
-    plt.scatter([1]*len(fit_df), fit_df['g_prob'], alpha=0.2)
-    plt.show()
+
+
  
     # matrix[N, 1] g_vs;
     # matrix[N, 1] i_vs;
