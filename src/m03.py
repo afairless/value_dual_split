@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import pystan
+import cmdstanpy
 import arviz as az
 import numpy as np
 import pandas as pd
@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 
 
 def write_list_to_text_file(
-    a_list: list, text_filename: str, overwrite: bool=False):
+    a_list: list[str], text_filename: Path | str, overwrite: bool=False
+    ) -> None:
     """
     Writes a list of strings to a text file
     If 'overwrite' is 'True', any existing file by the name of 'text_filename'
@@ -33,14 +34,10 @@ def write_list_to_text_file(
     else:
         append_or_overwrite = 'a'
 
-    try:
-        text_file = open(text_filename, append_or_overwrite, encoding='utf-8')
+    with open(text_filename, append_or_overwrite, encoding='utf-8') as txt_file:
         for e in a_list:
-            text_file.write(str(e))
-            text_file.write('\n')
-
-    finally:
-        text_file.close()
+            txt_file.write(str(e))
+            txt_file.write('\n')
 
 
 def dummy_code_two_level_hierarchical_categories(
@@ -63,7 +60,7 @@ def dummy_code_two_level_hierarchical_categories(
     return combined_array
 
 
-def get_stan_data_from_df(df: pd.DataFrame) -> dict:
+def get_stan_data_from_df(df: pd.DataFrame) -> dict[str, Any]:
     """
     Create a dictionary from DataFrame of data to be passed to a Stan model
     """
@@ -98,7 +95,8 @@ def get_stan_data_from_df(df: pd.DataFrame) -> dict:
     return stan_data
 
 
-def save_summaries(fit_df: pd.DataFrame, fit_model, output_path: Path):
+def save_summaries(
+    fit_df: pd.DataFrame, fit_model: cmdstanpy.CmdStanMCMC, output_path: Path):
 
     filename = 'fit_df.csv'
     output_filepath = output_path / filename
@@ -108,20 +106,11 @@ def save_summaries(fit_df: pd.DataFrame, fit_model, output_path: Path):
     output_filepath = output_path / filename
     fit_df.to_parquet(output_filepath)
 
-    # text summary of means, sd, se, and quantiles for parameters, n_eff, & Rhat
-    fit_stansummary = fit_model.stansummary()
-    output_filepath = output_path / 'stansummary.txt'
-    write_list_to_text_file([fit_stansummary], output_filepath.as_posix(), True)
-
-    # same summary as for 'stansummary', but in matrix/dataframe form instead of text
-    fit_summary_df = pd.DataFrame(
-        fit_model.summary()['summary'],
-        index=fit_model.summary()['summary_rownames'],
-        columns=fit_model.summary()['summary_colnames'])
-    output_filepath = output_path / 'stansummary.csv'
-    fit_summary_df.to_csv(output_filepath, index=True)
-    output_filepath = output_path / 'stansummary.parquet'
-    fit_summary_df.to_parquet(output_filepath, index=True)
+    fit_stansummary = fit_model.summary()
+    output_filepath = output_path / 'stan_summary.csv'
+    fit_stansummary.to_csv(output_filepath, index=True)
+    output_filepath = output_path / 'stan_summary.parquet'
+    fit_stansummary.to_parquet(output_filepath, index=True)
 
 
 def save_plots(
@@ -130,10 +119,11 @@ def save_plots(
     # plot parameters
     ##################################################
 
-    az_stan_data = az.from_pystan(
+    az_stan_data = az.from_cmdstanpy(
         posterior=fit_model,
         # posterior_predictive='predicted_y_given_x',
-        observed_data=['y'])
+        # observed_data=['y']
+        )
 
 
     az.style.use('arviz-darkgrid')
@@ -165,7 +155,7 @@ def save_plots(
     print('Plotting density')
     az.plot_density(
         az_stan_data, var_names=parameter_names, outline=False, shade=0.7,
-        credible_interval=0.9, point_estimate='mean', show=show)
+        hdi_prob=0.9, point_estimate='mean', show=show)
     output_filepath = output_path / 'plot_density.png'
     plt.savefig(output_filepath)
     plt.clf()
@@ -231,7 +221,7 @@ def save_plots(
     az.plot_forest(
         az_stan_data, kind='forestplot', var_names=parameter_names,
         linewidth=6, markersize=8,
-        credible_interval=0.9, r_hat=True, ess=True, show=show)
+        hdi_prob=0.9, r_hat=True, ess=True, show=show)
     output_filepath = output_path / 'plot_forest.png'
     plt.savefig(output_filepath)
     plt.clf()
@@ -240,7 +230,7 @@ def save_plots(
     # look at model estimations of parameters, r-hat, and ess
     az.plot_forest(
         az_stan_data, kind='ridgeplot', var_names=parameter_names,
-        credible_interval=0.9, r_hat=True, ess=True,
+        hdi_prob=0.9, r_hat=True, ess=True,
         ridgeplot_alpha=0.5, ridgeplot_overlap=2, ridgeplot_kind='auto',
         show=show)
     output_filepath = output_path / 'plot_forest_ridge.png'
@@ -262,9 +252,9 @@ def save_plots(
     for x_col_idx in range(x.shape[1]):
         plt.scatter(x[:, x_col_idx], y)
         az.plot_hpd(
-            x[:, x_col_idx], predicted_y_df, credible_interval=0.5, show=show)
+            x[:, x_col_idx], predicted_y_df, hdi_prob=0.5, show=show)
         az.plot_hpd(
-            x[:, x_col_idx], predicted_y_df, credible_interval=0.9, show=show)
+            x[:, x_col_idx], predicted_y_df, hdi_prob=0.9, show=show)
         filename = 'plot_hpd_x' + str(x_col_idx) + '.png'
         output_filepath = output_path / filename
         plt.savefig(output_filepath)
@@ -362,7 +352,7 @@ def save_plots(
     ##################################################
 
     az.plot_posterior(
-        az_stan_data, var_names=parameter_names, credible_interval=0.9,
+        az_stan_data, var_names=parameter_names, hdi_prob=0.9,
         point_estimate='mean', show=show)
     output_filepath = output_path / 'plot_posterior.png'
     plt.savefig(output_filepath)
@@ -445,7 +435,7 @@ def save_plots(
 
     az.plot_violin(
         az_stan_data, var_names=parameter_names, rug=True,
-        credible_interval=0.9, show=show)
+        hdi_prob=0.9, show=show)
     output_filepath = output_path / 'plot_violin.png'
     plt.savefig(output_filepath)
     plt.clf()
@@ -531,32 +521,32 @@ def main():
 
         df = pd.read_parquet(df_filepath)
         stan_data = get_stan_data_from_df(df)
-        stan_model = pystan.StanModel(file=stan_filepath.as_posix())
+        stan_model = cmdstanpy.CmdStanModel(stan_file=stan_filepath.as_posix())
 
-        # fit_model = stan_model.sampling(
-        #    data=stan_data, iter=300, chains=1, warmup=150, thin=1, seed=708869)
-        fit_model = stan_model.sampling(
-           data=stan_data, iter=2000, chains=4, warmup=1000, thin=1, seed=22074)
+        fit_model = stan_model.sample(
+           data=stan_data, iter_sampling=300, chains=1, iter_warmup=150, thin=1, seed=708869)
+        # fit_model = stan_model.sample(
+        #    data=stan_data, iter=2000, chains=4, warmup=1000, thin=1, seed=22074)
         # fit_model = stan_model.sampling(
         #     data=stan_data, iter=2000, chains=4, warmup=1000, thin=2, seed=22074)
 
         # all samples for all parameters, predicted values, and diagnostics
         #   number of rows = number of 'iter' in 'StanModel.sampling' call
-        fit_df = fit_model.to_dataframe()
+        fit_df = fit_model.draws_pd()
 
         save_summaries(fit_df, fit_model, output_subpath)
         save_plots(fit_df, fit_model, output_subpath)
 
-        # fit_model.stansummary()
-        true_g_v = df[['g_id', 'g_v']].groupby('g_id').mean()
-        true_i_v = df[['i_id', 'i_v']].groupby('i_id').mean()
+        true_g_v = df[['g_id', 'g_v']].groupby('g_id').mean()['g_v']
+        assert isinstance(true_g_v, pd.Series)
+        true_i_v = df[['i_id', 'i_v']].groupby('i_id').mean()['i_v']
+        assert isinstance(true_i_v, pd.Series)
         g_prop = float(df_filepath.stem.split('gprop_')[1])
         mean_error = fit_df['g_prob'].mean() - g_prop
         median_error = fit_df['g_prob'].median() - g_prop
         probability_estimation_metrics.append(
             (df_filepath.stem, g_prop, mean_error, median_error))
 
-        # fit_df.columns
 
         title = df_filepath.stem
         output_filename = 'group_probability_true_vs_posterior.png'
@@ -595,18 +585,6 @@ def main():
     output_filename = df_filename_group_stem + 'g_prop_error.parquet'
     output_filepath = output_path / output_filename
     probability_estimation_df.to_parquet(output_filepath)
-
-
-
-
- 
-    # matrix[N, 1] g_vs;
-    # matrix[N, 1] i_vs;
-    # vector[N] g_vs;
-    # vector[N] i_vs;
-    # g_vs = g_x * g_v;
-    # i_vs = i_x * i_v;
-    # vs = append_col(g_vs, i_vs);
 
 
 

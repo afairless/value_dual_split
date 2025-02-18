@@ -17,8 +17,8 @@ transformed parameters {
   ps[2] = 1 - g_prob;
 }
 model {
-  g_prob ~ uniform(0, 1);
-  g_v ~ uniform(0, 1);
-  i_v ~ uniform(0, 1);
+  g_prob ~ uniform(0.08, 0.92);
+  g_v ~ uniform(0.08, 0.92);
+  i_v ~ uniform(0.08, 0.92);
   y ~ normal(append_col(g_x * g_v, i_x * i_v) * ps, 1);
 }
