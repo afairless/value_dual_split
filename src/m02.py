@@ -479,7 +479,7 @@ def plot_combined_values_by_group_proportion_for_groups(
 
 def main_analysis(total: int, output_path: Path):
 
-    # pl.Config.set_tbl_cols(12)
+    # pl.Config.set_tbl_cols(14)
     # pl.Config.set_tbl_rows(24)
 
     print('This is the saved main function.')

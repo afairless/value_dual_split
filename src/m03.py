@@ -523,10 +523,12 @@ def main():
         stan_data = get_stan_data_from_df(df)
         stan_model = cmdstanpy.CmdStanModel(stan_file=stan_filepath.as_posix())
 
-        fit_model = stan_model.sample(
-           data=stan_data, iter_sampling=300, chains=1, iter_warmup=150, thin=1, seed=708869)
         # fit_model = stan_model.sample(
-        #    data=stan_data, iter=2000, chains=4, warmup=1000, thin=1, seed=22074)
+        #    data=stan_data, iter_sampling=300, chains=1, iter_warmup=150, thin=1, 
+        #    seed=708869)
+        fit_model = stan_model.sample(
+           data=stan_data, iter_sampling=2000, chains=4, iter_warmup=1000, thin=1, 
+           seed=352918)
         # fit_model = stan_model.sampling(
         #     data=stan_data, iter=2000, chains=4, warmup=1000, thin=2, seed=22074)
 

@@ -27,6 +27,7 @@ arviz = ">=0.20.0,<0.21"
 
 [feature.dev.dependencies]
 pytest = ">=8.3.4,<9"
+hypothesis = ">=6.126.0,<7"
 
 [environments]
 default = { features = ["dev"], solve-group = "prod" }
