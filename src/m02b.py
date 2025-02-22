@@ -635,7 +635,7 @@ def plot_combined_values_by_group_proportion(output_path: Path):
 if __name__ == '__main__':
 
     total = 72 ** 2
-    output_path = Path.cwd() / 'output' / 'm02' / ('combo_n_' + str(total))
+    output_path = Path.cwd() / 'output' / 'm02b' / ('combo_n_' + str(total))
     output_path.mkdir(exist_ok=True, parents=True)
 
     main_analysis(total, output_path)

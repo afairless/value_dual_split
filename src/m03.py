@@ -494,7 +494,7 @@ def main():
     input_path = Path.cwd() / 'output' / ('combo_n_' + str(total))
     stan_filename = 'bayes_stan.stan'
     stan_filepath = Path.cwd() / 'src' / 'stan_code' / stan_filename
-    output_path = Path.cwd() / 'output'
+    output_path = Path.cwd() / 'm03' / 'output'
     output_path.mkdir(exist_ok=True, parents=True)
 
 
