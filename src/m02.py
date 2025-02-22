@@ -18,6 +18,10 @@ import matplotlib.cm as cm
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
+from src.m03 import (
+    dummy_code_two_level_hierarchical_categories,
+    )
+
 
 @dataclass
 class GroupVariance:
@@ -132,6 +136,38 @@ def get_squared_error(
         (pl.col('dp') - example_df[:, 2]).pow(2).alias('sq_err'))
     
     error = calc_df['sq_err'].sum()
+
+    return error
+
+
+def get_squared_error_lin_alg(
+    params: list[float], example_df: pl.DataFrame) -> float:
+    """
+    Calculate the sum of squared errors between the predicted and actual values
+        for a linear model with a single predictor and a single outcome variable
+
+    Assumes the following structure for 'example_df':
+        - Column 0:  'a' (predictor variable)
+        - Column 1:  'b' (predictor variable)
+        - Column 2:  'v' (outcome variable)
+    """
+
+    a_n = example_df[:, 0].n_unique()
+    b_n = example_df[:, 1].n_unique()
+    assert len(params) == 1 + a_n + b_n
+
+    dummy_arr = dummy_code_two_level_hierarchical_categories(a_n, b_n)
+    a_dummy_arr = dummy_arr[:, :a_n]
+    b_dummy_arr = dummy_arr[:, a_n:]
+
+    a_params = np.array(params[1:(1+a_n)])
+    b_params = np.array(params[(1+a_n):])
+    av = a_dummy_arr @ a_params
+    bv = b_dummy_arr @ b_params
+    vs = np.concatenate((av.reshape(-1, 1), bv.reshape(-1, 1)), axis=1)
+    ps = np.array([params[0], 1 - params[0]]).reshape(-1, 1)
+    dp = vs @ ps
+    error = np.pow(dp - example_df[:, 2].to_numpy().reshape(-1, 1), 2).sum()
 
     return error
 
