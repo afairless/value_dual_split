@@ -18,9 +18,14 @@ import matplotlib.cm as cm
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
-from src.m03 import (
-    dummy_code_two_level_hierarchical_categories,
-    )
+try:
+    from src.m03 import (
+        dummy_code_two_level_hierarchical_categories,
+        )
+except:
+    from m03 import (
+        dummy_code_two_level_hierarchical_categories,
+        )
 
 
 @dataclass
@@ -374,6 +379,12 @@ def plot_group_proportion_estimates_by_group_individual_ratios(
             pl.col('g_prop_est'), 
             pl.col('i_n_to_g_n').first()])).sort('g_n')
 
+    y_max = plot_df['g_prop_est'].explode().max()
+    assert isinstance(y_max, float)
+    if (0.8 < y_max) & (y_max < 1.2):
+        plt.plot([0, 1], [0, 1], color='black', linestyle='--')
+        plt.plot([0, 1], [1, 0], color='black', linestyle='--')
+
     cmap = plt.get_cmap('viridis')
     colors = [cmap(i / len(plot_df)) for i in range(len(plot_df))]
 
@@ -385,7 +396,7 @@ def plot_group_proportion_estimates_by_group_individual_ratios(
             row['g_prop'], row['g_prop_est'], linestyle='-', marker='o', 
             color=colors[i])
 
-    plt.legend(title='i_n_to_g_n')
+    plt.legend(title='i_n_to_g_n', fontsize=8)
     plt.xlabel('True group proportion, g_prop')
     plt.ylabel('Estimated group proportion, g_prop_est')
     plt.xlim(0, 1)
@@ -410,6 +421,12 @@ def plot_metric_by_group_individual_ratios(
             pl.col(metric_colname), 
             pl.col('i_n_to_g_n').first()])).sort('g_n')
 
+    y_max = plot_df[metric_colname].explode().max()
+    assert isinstance(y_max, float)
+    if (0.8 < y_max) & (y_max < 1.2):
+        plt.plot([0, 1], [0, 1], color='black', linestyle='--')
+        plt.plot([0, 1], [1, 0], color='black', linestyle='--')
+
     cmap = plt.get_cmap('viridis')
     colors = [cmap(i / len(plot_df)) for i in range(len(plot_df))]
 
@@ -421,7 +438,7 @@ def plot_metric_by_group_individual_ratios(
             row['g_prop'], row[metric_colname], linestyle='-', marker='o', 
             color=colors[i])
 
-    plt.legend(title='i_n_to_g_n')
+    plt.legend(title='i_n_to_g_n', fontsize=8)
     plt.xlabel('True group proportion, g_prop')
     plt.ylabel(metric_label)
     plt.xlim(0, 1)
@@ -447,6 +464,12 @@ def plot_metric_by_metric(
             pl.col(metric_y_colname), 
             pl.col('i_n_to_g_n').first()])).sort('g_n')
 
+    y_max = plot_df[metric_y_colname].explode().max()
+    assert isinstance(y_max, float)
+    if (0.8 < y_max) & (y_max < 1.2):
+        plt.plot([0, 1], [0, 1], color='black', linestyle='--')
+        plt.plot([0, 1], [1, 0], color='black', linestyle='--')
+
     cmap = plt.get_cmap('viridis')
     colors = [cmap(i / len(plot_df)) for i in range(len(plot_df))]
 
@@ -463,7 +486,7 @@ def plot_metric_by_metric(
             row[metric_x_colname], row[metric_y_colname], linestyle='-', marker='o', 
             color=colors[i])
 
-    plt.legend(title='i_n_to_g_n')
+    plt.legend(title='i_n_to_g_n', fontsize=8)
     plt.xlabel(metric_x_label)
     plt.ylabel(metric_y_label)
     # plt.xlim(0, 1)
@@ -536,6 +559,7 @@ def main_analysis(total: int, output_path: Path):
     factor_df = calculate_factors(total)
     g_props = [e/10 for e in range(1, 10, 2)]
     result_df = get_results_given_parameters(factor_df, g_props, output_path)
+    # result_df.filter(pl.col('g_prop').eq(0.9)).select(pl.col('g_prop', 'g_prop_est', 'btwn_var_prop'))
 
     filename_stem = 'results'
     save_dataframe_to_csv_and_parquet(result_df, filename_stem, output_path)
