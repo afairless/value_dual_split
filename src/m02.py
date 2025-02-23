@@ -14,7 +14,6 @@ from itertools import product as it_product
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
-
 try:
     from src.common import (
         save_dataframe_to_csv_and_parquet,
@@ -36,7 +35,6 @@ except:
     from m03 import (
         dummy_code_two_level_hierarchical_categories,
         )
-
 
 try:
     from src.plot import (
@@ -209,7 +207,8 @@ def get_all_value_combinations(
 
 
 def get_results_given_parameter_set(
-    g_n: int, i_n: int, g_prop: float, df: pl.DataFrame) -> list[float]:
+    g_n: int, i_n: int, g_prop: float, df: pl.DataFrame
+    ) -> tuple[list[float], list[float]]:
 
     group_variance = partition_group_variance(df, 'g_id', 'cv')
 
@@ -241,7 +240,7 @@ def get_results_given_parameter_set(
 
     final_error = get_squared_error(result.x, df)
 
-    result = [
+    compiled_result = [
         g_n, i_n, 
         g_prop, float(result.x[0]), 
         final_error, result.success,
@@ -252,14 +251,17 @@ def get_results_given_parameter_set(
         group_variance.wthn_var_prop,
         icc1, icc2, icc3]
 
-    return result
+    individual_estimates = result.x[1:].tolist()
+
+    return compiled_result, individual_estimates
 
 
 def get_results_given_parameters(
     factor_df: pl.DataFrame, g_props: list[float], output_path: Path
     ) -> pl.DataFrame:
 
-    results = []
+    metric_summaries = []
+    individual_parameters = []
     for g_n, i_n in factor_df.iter_rows():
         for g_prop in g_props:
             print(g_n, i_n)
@@ -275,19 +277,45 @@ def get_results_given_parameters(
                 '_gprop_' + str(g_prop))
             save_dataframe_to_csv_and_parquet(df, filename_stem, output_path)
 
-            result = get_results_given_parameter_set(g_n, i_n, g_prop, df)
+            metric_summary, individual_params = (
+                get_results_given_parameter_set(g_n, i_n, g_prop, df))
 
-            results.append(result)
+            metric_summaries.append(metric_summary)
+            g_param_names = ['g_' + str(e) for e in range(g_n)]
+            i_param_names = ['i_' + str(e) for e in range(i_n)]
+            individual_param_names = g_param_names + i_param_names
+            individual_params_dict = dict(zip(
+                individual_param_names, individual_params))
+            individual_parameters.append(individual_params_dict)
 
     colnames = [
         'g_n', 'i_n', 'g_prop', 'g_prop_est', 'error', 'success',
         'btwn_group_var', 'wthn_group_var', 'total_var', 
         'btwn_var_prop', 'wthn_var_prop',
         'icc1', 'icc2', 'icc3']
-    result_df = pl.DataFrame(results, orient='row')
-    result_df.columns = colnames
+    metric_df = pl.DataFrame(metric_summaries, orient='row')
+    metric_df.columns = colnames
 
-    return result_df
+    # to convert a list of dictionaries to structs to be used as a Polars 
+    #   DataFrame column, one must ensure that all the dictionary keys are
+    #   present in each dictionary
+    # (Actually, it might work if all keys are present only in the first
+    #   dictionary, but I'll take the uniform approach)
+    g_param_names = ['g_' + str(e) for e in range(factor_df[:, 0].max())]
+    i_param_names = ['i_' + str(e) for e in range(factor_df[:, 1].max())]
+
+    for param_dict in individual_parameters:
+        for g_param_name in g_param_names:
+            if g_param_name not in param_dict:
+                param_dict[g_param_name] = None
+        for i_param_name in i_param_names:
+            if i_param_name not in param_dict:
+                param_dict[i_param_name] = None
+
+    metric_df = metric_df.with_columns(
+        pl.Series(individual_parameters).alias('individual_parameters'))
+
+    return metric_df
 
 
 def main_analysis(total: int, output_path: Path):

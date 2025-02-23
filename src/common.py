@@ -16,7 +16,13 @@ def save_dataframe_to_csv_and_parquet(
 
     output_filename = filename_stem + '.csv'
     output_filepath = output_path / output_filename
-    df.write_csv(output_filepath)
+
+    # df.drop(pl.col(pl.Struct))
+    # filter out struct columns to save to 'csv'
+    (df
+     .select(
+        [pl.col(c) for c in df.columns if df[c].dtype != pl.Struct])
+     .write_csv(output_filepath))
 
     output_filename = filename_stem + '.parquet'
     output_filepath = output_path / output_filename
