@@ -1,13 +1,13 @@
 #! /usr/bin/env python3
 
+import json
 import random
 import numpy as np
 import polars as pl
-import pandas as pd
 import pingouin as pg
 
 from pathlib import Path
-from scipy.optimize import minimize, LinearConstraint
+from scipy.optimize import minimize, OptimizeResult
 from typing import Callable, Iterable
 from itertools import product as it_product
 from dataclasses import dataclass
@@ -596,6 +596,9 @@ def main_analysis(total: int, output_path: Path):
         ('g_prop', 'total_var'), 
         ('g_prop', 'icc1'), 
         ('g_prop', 'icc2'), 
+        ('g_prop_est', 'btwn_var_prop'), 
+        ('g_prop_est', 'wthn_var_prop'), 
+        ('g_prop_est', 'total_var'), 
         ('btwn_var_prop', 'icc1'), 
         ('btwn_var_prop', 'icc2'), 
         ('wthn_var_prop', 'icc1'), 
@@ -692,6 +695,111 @@ def plot_combined_values_by_group_proportion(output_path: Path):
             df, colnames, title, output_path, output_filename)
 
 
+def predict_inverse_logistic(
+    xs: np.ndarray, horizontal_bias_param: float=0, 
+    vertical_stretch_param: float=1) -> np.ndarray:
+    """
+    Predict the logit of the values for an inverse logistic
+    """
+
+    return (
+        horizontal_bias_param + vertical_stretch_param * np.log(xs / (1 - xs)))
+
+
+def calculate_inverse_logistic_squared_error(
+    params: list[float], xs: np.ndarray, ys: np.ndarray) -> float:
+    """
+    Calculate the sum of squared errors for an inverse logistic regression model
+    """
+
+    assert np.ndim(xs) == 1
+    assert np.ndim(ys) == 1
+    assert len(xs) == len(ys)
+    assert all([0 < e < 1 for e in xs])
+    assert params[1] > 0
+
+    pred_y = predict_inverse_logistic(xs, params[0], params[1])
+
+    error = np.sum(np.power(pred_y - ys, 2))
+
+    return error
+
+
+def get_inverse_logistic_results_given_parameter_set(
+    x: pl.Series, y: pl.Series) -> OptimizeResult:
+    """
+    Get the results for an inverse logistic regression model given a set of 
+        parameters
+    """
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+    xs = x.to_numpy()
+    ys = y.to_numpy()
+    initial_params = [horizontal_bias_param, vertical_stretch_param]
+    bounds = [(None, None), (1e-6, None)]
+
+    result = minimize(
+        calculate_inverse_logistic_squared_error, initial_params, 
+        args=(xs, ys), bounds=bounds)
+
+    return result
+
+
+def plot_inverse_logistic_results(
+    x: pl.Series, y: pl.Series, bias_param: float, stretch_param: float,
+    output_path: Path) -> None:
+    """
+    Plot the data and the predicted values for an inverse logistic regression
+    """
+
+    assert len(x) == len(y)
+
+    xs = np.linspace(0.01, 0.99, 99)
+    ys = predict_inverse_logistic(xs, bias_param, stretch_param)
+
+    plt.scatter(xs, ys, color='red', alpha=0.5)
+    plt.scatter(x.to_list(), y.to_list(), color='blue')
+
+    plt.xlim(0, 1)
+
+    output_filename = 'inverse_logistic_data_and_prediction.png'
+    output_filepath = output_path / output_filename
+    plt.savefig(output_filepath)
+    plt.clf()
+    plt.close()
+
+
+def predict_on_between_group_variance(output_path: Path):
+    """
+    Predict the group proportion from the between-group variance proportion 
+        using an inverse logistic regression
+    """
+
+    df_filepath = output_path / 'results.parquet'
+
+    df = pl.read_parquet(df_filepath)
+
+    filter_df = df.filter(pl.col('g_n').eq(pl.col('i_n')))
+    x_colname = 'btwn_var_prop'
+    y_colname = 'g_prop'
+    x = filter_df[x_colname]
+    y = filter_df[y_colname]
+
+    result = get_inverse_logistic_results_given_parameter_set(x, y)
+
+    param_dict = {
+        'horizontal_bias': result.x[0], 
+        'vertical_stretch': result.x[1]}
+    output_filename = 'inverse_logistic_params.json'
+    output_filepath = output_path / output_filename
+    with open(output_filepath, 'w') as f:
+        json.dump(param_dict, f)
+
+    plot_inverse_logistic_results(
+        x, y, result.x[0], result.x[1], output_path)
+
+
 if __name__ == '__main__':
 
     total = 72 ** 2
@@ -700,3 +808,4 @@ if __name__ == '__main__':
 
     main_analysis(total, output_path)
     plot_combined_values_by_group_proportion(output_path)
+    predict_on_between_group_variance(output_path)
