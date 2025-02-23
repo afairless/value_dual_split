@@ -541,8 +541,6 @@ def main_analysis(total: int, output_path: Path):
     # pl.Config.set_tbl_cols(14)
     # pl.Config.set_tbl_rows(24)
 
-    print('This is the saved main function.')
-
     # correspondences
     #   raters      targets     ratings
     #   group       x           y
@@ -557,7 +555,7 @@ def main_analysis(total: int, output_path: Path):
     #     generate_sequential_integers, generate_sequential_integers)
 
     factor_df = calculate_factors(total)
-    g_props = [e/10 for e in range(1, 10, 2)]
+    g_props = [0.05] + [e/100 for e in range(10, 100, 10)] + [0.95]
     result_df = get_results_given_parameters(factor_df, g_props, output_path)
     # result_df.filter(pl.col('g_prop').eq(0.9)).select(pl.col('g_prop', 'g_prop_est', 'btwn_var_prop'))
 
@@ -702,6 +700,10 @@ def predict_inverse_logistic(
     Predict the logit of the values for an inverse logistic
     """
 
+    assert np.ndim(xs) == 1
+    assert all([0 < e < 1 for e in xs])
+    assert vertical_stretch_param > 0
+
     return (
         horizontal_bias_param + vertical_stretch_param * np.log(xs / (1 - xs)))
 
@@ -802,7 +804,7 @@ def predict_on_between_group_variance(output_path: Path):
 
 if __name__ == '__main__':
 
-    total = 72 ** 2
+    total = 36 ** 2
     output_path = Path.cwd() / 'output' / 'm02' / ('combo_n_' + str(total))
     output_path.mkdir(exist_ok=True, parents=True)
 
