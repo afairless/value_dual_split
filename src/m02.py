@@ -764,6 +764,11 @@ def plot_inverse_logistic_results(
     plt.scatter(x.to_list(), y.to_list(), color='blue')
 
     plt.xlim(0, 1)
+    plt.title(
+        'Use inverse logistic to adjust between-group variance proportion\n '
+        'as a prediction of the group proportion')
+    plt.xlabel('Between-group variance proportion, btwn_var_prop')
+    plt.ylabel('True group proportion, g_prop')
 
     output_filename = 'inverse_logistic_data_and_prediction.png'
     output_filepath = output_path / output_filename
@@ -804,7 +809,7 @@ def predict_on_between_group_variance(output_path: Path):
 
 if __name__ == '__main__':
 
-    total = 36 ** 2
+    total = 12 ** 2
     output_path = Path.cwd() / 'output' / 'm02' / ('combo_n_' + str(total))
     output_path.mkdir(exist_ok=True, parents=True)
 
