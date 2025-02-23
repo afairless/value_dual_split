@@ -590,7 +590,7 @@ def test_calculate_logit_squared_error_05():
             [horizontal_bias_param, vertical_stretch_param], xs, ys)
 
 
-def test_calculate_logit_squared_error_09():
+def test_calculate_logit_squared_error_06():
     """
     Test valid input
     """
@@ -604,6 +604,57 @@ def test_calculate_logit_squared_error_09():
     result = calculate_inverse_logistic_squared_error(
         [horizontal_bias_param, vertical_stretch_param], xs, ys)
     correct_result = 5.097243834763624
+    assert np.isclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_calculate_logit_squared_error_07():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 1
+    vertical_stretch_param = 1
+
+    result = calculate_inverse_logistic_squared_error(
+        [horizontal_bias_param, vertical_stretch_param], xs, ys)
+    correct_result = 0.097243834763626
+    assert np.isclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_calculate_logit_squared_error_08():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 2
+
+    result = calculate_inverse_logistic_squared_error(
+        [horizontal_bias_param, vertical_stretch_param], xs, ys)
+    correct_result = 19.333466885778893
+    assert np.isclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_calculate_logit_squared_error_09():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 1
+    vertical_stretch_param = 2
+
+    result = calculate_inverse_logistic_squared_error(
+        [horizontal_bias_param, vertical_stretch_param], xs, ys)
+    correct_result = 14.333466885778892
     assert np.isclose(result, correct_result, atol=1e-6, rtol=1e-6)
 
 
