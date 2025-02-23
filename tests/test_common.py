@@ -1,13 +1,14 @@
  
 import pytest
 import numpy as np
-import polars as pl
 
 from hypothesis import given, settings, reproduce_failure
 import hypothesis.strategies as st
 
 from src.common import (
     calculate_average_of_averages_of_cross_product_pairs,
+    predict_inverse_logistic,
+    calculate_inverse_logistic_squared_error,
     )
 
 
@@ -133,6 +134,261 @@ def test_calculate_average_of_averages_of_cross_product_pairs_09(
     assert result == correct_result
 
 
+def test_predict_inverse_logistic_01():
+    """
+    Test invalid input:  array with too many dimensions
+    """
 
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90]).reshape(-1, 1)
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = predict_inverse_logistic(
+            xs, horizontal_bias_param, vertical_stretch_param)
+
+
+def test_predict_inverse_logistic_02():
+    """
+    Test invalid input:  an element in 'x' array not between 0 and 1
+    """
+
+    xs = np.array([0.10, 1.25, 0.5, 0.75, 0.90])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = predict_inverse_logistic(
+            xs, horizontal_bias_param, vertical_stretch_param)
+
+
+def test_predict_inverse_logistic_03():
+    """
+    Test invalid input:  verticle stretch parameter not positive
+    """
+
+    xs = np.array([0.10, 1.25, 0.5, 0.75, 0.90])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 0
+
+    with pytest.raises(AssertionError):
+        _ = predict_inverse_logistic(
+            xs, horizontal_bias_param, vertical_stretch_param)
+
+
+def test_predict_inverse_logistic_04():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    result = predict_inverse_logistic(
+        xs, horizontal_bias_param, vertical_stretch_param)
+    correct_result = np.array([-2.197225, -1.098612, 0, 1.098612, 2.197225])
+    assert np.allclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_predict_inverse_logistic_05():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+
+    horizontal_bias_param = 1
+    vertical_stretch_param = 1
+
+    result = predict_inverse_logistic(
+        xs, horizontal_bias_param, vertical_stretch_param)
+    correct_result = np.array([-1.197225, -0.098612, 1, 2.098612, 3.197225])
+    assert np.allclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_predict_inverse_logistic_06():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 2
+
+    result = predict_inverse_logistic(
+        xs, horizontal_bias_param, vertical_stretch_param)
+    correct_result = 2 * np.array([-2.197225, -1.098612, 0, 1.098612, 2.197225])
+    assert np.allclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_predict_inverse_logistic_07():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+
+    horizontal_bias_param = 1
+    vertical_stretch_param = 2
+
+    result = predict_inverse_logistic(
+        xs, horizontal_bias_param, vertical_stretch_param)
+    correct_result = (
+        1 + (2 * np.array([-2.197225, -1.098612, 0, 1.098612, 2.197225])))
+    assert np.allclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_calculate_logit_squared_error_01():
+    """
+    Test invalid input:  array with too many dimensions
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90]).reshape(-1, 1)
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_02():
+    """
+    Test invalid input:  array with too many dimensions
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+    ys = np.array([-1, 0, 1, 2, 3]).reshape(-1, 1)
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_03():
+    """
+    Test invalid input:  arrays with different lengths
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_04():
+    """
+    Test invalid input:  an element in 'x' array not between 0 and 1
+    """
+
+    xs = np.array([0.10, 1.25, 0.5, 0.75])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_05():
+    """
+    Test invalid input:  verticle stretch parameter not positive
+    """
+
+    xs = np.array([0.10, 1.25, 0.5, 0.75])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 0
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_06():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    result = calculate_inverse_logistic_squared_error(
+        [horizontal_bias_param, vertical_stretch_param], xs, ys)
+    correct_result = 5.097243834763624
+    assert np.isclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_calculate_logit_squared_error_07():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 1
+    vertical_stretch_param = 1
+
+    result = calculate_inverse_logistic_squared_error(
+        [horizontal_bias_param, vertical_stretch_param], xs, ys)
+    correct_result = 0.097243834763626
+    assert np.isclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_calculate_logit_squared_error_08():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 2
+
+    result = calculate_inverse_logistic_squared_error(
+        [horizontal_bias_param, vertical_stretch_param], xs, ys)
+    correct_result = 19.333466885778893
+    assert np.isclose(result, correct_result, atol=1e-6, rtol=1e-6)
+
+
+def test_calculate_logit_squared_error_09():
+    """
+    Test valid input
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 1
+    vertical_stretch_param = 2
+
+    result = calculate_inverse_logistic_squared_error(
+        [horizontal_bias_param, vertical_stretch_param], xs, ys)
+    correct_result = 14.333466885778892
+    assert np.isclose(result, correct_result, atol=1e-6, rtol=1e-6)
 
 
