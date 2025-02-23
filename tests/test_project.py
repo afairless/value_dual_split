@@ -401,6 +401,86 @@ def test_get_squared_error_functions_01(
 
 def test_calculate_logit_squared_error_01():
     """
+    Test invalid input:  array with too many dimensions
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90]).reshape(-1, 1)
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_02():
+    """
+    Test invalid input:  array with too many dimensions
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75, 0.90])
+    ys = np.array([-1, 0, 1, 2, 3]).reshape(-1, 1)
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_03():
+    """
+    Test invalid input:  arrays with different lengths
+    """
+
+    xs = np.array([0.10, 0.25, 0.5, 0.75])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_04():
+    """
+    Test invalid input:  an element in 'x' array not between 0 and 1
+    """
+
+    xs = np.array([0.10, 1.25, 0.5, 0.75])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 1
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_05():
+    """
+    Test invalid input:  verticle stretch parameter not positive
+    """
+
+    xs = np.array([0.10, 1.25, 0.5, 0.75])
+    ys = np.array([-1, 0, 1, 2, 3])
+
+    horizontal_bias_param = 0
+    vertical_stretch_param = 0
+
+    with pytest.raises(AssertionError):
+        _ = calculate_inverse_logistic_squared_error(
+            [horizontal_bias_param, vertical_stretch_param], xs, ys)
+
+
+def test_calculate_logit_squared_error_09():
+    """
     Test valid input
     """
 
