@@ -43,6 +43,8 @@ try:
         plot_metric_by_metric,
         plot_combined_values_by_group_proportion_for_groups,
         plot_inverse_logistic_results,
+        plot_parameter_estimates_vs_true_values_correlation,
+        plot_parameter_estimates_vs_true_values_by_index,
         )
 except:
     from plot import (
@@ -51,6 +53,8 @@ except:
         plot_metric_by_metric,
         plot_combined_values_by_group_proportion_for_groups,
         plot_inverse_logistic_results,
+        plot_parameter_estimates_vs_true_values_correlation,
+        plot_parameter_estimates_vs_true_values_by_index,
         )
 
 
@@ -449,6 +453,25 @@ def main_analysis(total: int, output_path: Path):
             metric_x_colname, metric_x_colname, 
             metric_y_colname, metric_y_colname, 
             output_path, output_filename)
+
+
+    for i in range(len(result_df)):
+        plot_case_df = result_df[i, :]
+
+        g_n = plot_case_df['g_n'][0]
+        i_n = plot_case_df['i_n'][0]
+        g_prop = plot_case_df['g_prop'][0]
+        filename_stem = (
+            'gn_' + str(g_n) + 
+            '_in_' + str(i_n) + 
+            '_gprop_' + str(g_prop))
+        output_filename = filename_stem + '_est_vs_true_corr.png'
+        plot_parameter_estimates_vs_true_values_correlation(
+            plot_case_df, output_path, output_filename)
+        output_filename = filename_stem + '_est_vs_true_idx.png'
+        plot_parameter_estimates_vs_true_values_by_index(
+            plot_case_df, output_path, output_filename)
+
 
 
 def plot_combined_values_by_group_proportion(output_path: Path):

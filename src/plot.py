@@ -194,6 +194,110 @@ def plot_combined_values_by_group_proportion_for_groups(
 
  
 ##################################################
+# PLOT ESTIMATES AND TRUE VALUES FOR EACH PARAMETER
+##################################################
+ 
+def plot_parameter_estimates_vs_true_values_correlation(
+    plot_case_df: pl.DataFrame, output_path: Path, output_filename: str
+    ) -> None:
+    """
+    Plot the correlation between the estimated and true values of group and 
+        individual parameters
+    """
+
+    true_params = plot_case_df['true_parameters'][0]
+    est_params = plot_case_df['parameter_estimates'][0]
+
+    for k in true_params:
+        assert k in est_params.keys()
+
+    true_df = pl.DataFrame(true_params).transpose(include_header=True)
+    true_df.columns = ['param_name', 'true_value']
+    est_df = pl.DataFrame(est_params).transpose(include_header=True)
+    est_df.columns = ['param_name', 'estimate']
+
+    plot_df = true_df.join(est_df, on='param_name')
+
+    # filter out missing values
+    mask = (
+        pl.col(plot_df.columns[0]).is_not_null() &
+        pl.col(plot_df.columns[1]).is_not_null() &
+        pl.col(plot_df.columns[2]).is_not_null())
+    plot_df = plot_df.filter(mask).with_row_index()
+
+    plot_g_df = plot_df.filter(pl.col('param_name').str.starts_with('g_'))
+    plot_i_df = plot_df.filter(pl.col('param_name').str.starts_with('i_'))
+
+    plt.scatter(
+        plot_g_df['true_value'], plot_g_df['estimate'], 
+        color='blue', alpha=0.5)
+    plt.scatter(
+        plot_i_df['true_value'], plot_i_df['estimate'], 
+        color='orange', alpha=0.5)
+
+    plt.xlabel('True value')
+    plt.ylabel('Estimated value')
+
+    output_filepath = output_path / output_filename
+    plt.savefig(output_filepath)
+    plt.clf()
+    plt.close()
+
+ 
+def plot_parameter_estimates_vs_true_values_by_index(
+    plot_case_df: pl.DataFrame, output_path: Path, output_filename: str
+    ) -> None:
+    """
+    Plot the estimated and true values of group and individual parameters
+    """
+
+    true_params = plot_case_df['true_parameters'][0]
+    est_params = plot_case_df['parameter_estimates'][0]
+
+    for k in true_params:
+        assert k in est_params.keys()
+
+    true_df = pl.DataFrame(true_params).transpose(include_header=True)
+    true_df.columns = ['param_name', 'true_value']
+    est_df = pl.DataFrame(est_params).transpose(include_header=True)
+    est_df.columns = ['param_name', 'estimate']
+
+    plot_df = true_df.join(est_df, on='param_name')
+
+    # filter out missing values
+    mask = (
+        pl.col(plot_df.columns[0]).is_not_null() &
+        pl.col(plot_df.columns[1]).is_not_null() &
+        pl.col(plot_df.columns[2]).is_not_null())
+    plot_df = plot_df.filter(mask).with_row_index()
+
+    plot_g_df = plot_df.filter(pl.col('param_name').str.starts_with('g_'))
+    plot_i_df = plot_df.filter(pl.col('param_name').str.starts_with('i_'))
+
+    plt.scatter(
+        plot_g_df['index'], plot_g_df['true_value'], 
+        color='green', alpha=0.5, label='g_true')
+    plt.scatter(
+        plot_g_df['index'], plot_g_df['estimate'], 
+        color='blue', alpha=0.5, label='g_estimate')
+    plt.scatter(
+        plot_i_df['index'], plot_i_df['true_value'], 
+        color='green', alpha=0.5, label='i_true')
+    plt.scatter(
+        plot_i_df['index'], plot_i_df['estimate'], 
+        color='orange', alpha=0.5, label='i_estimate')
+
+    plt.xlabel('Index')
+    plt.ylabel('Value')
+    plt.legend(fontsize=8)
+
+    output_filepath = output_path / output_filename
+    plt.savefig(output_filepath)
+    plt.clf()
+    plt.close()
+
+ 
+##################################################
 # PLOT INVERSE LOGISTIC RESULTS
 ##################################################
  
