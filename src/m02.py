@@ -260,16 +260,25 @@ def get_results_given_parameters(
     factor_df: pl.DataFrame, g_props: list[float], output_path: Path
     ) -> pl.DataFrame:
 
+    param_true = []
     metric_summaries = []
-    individual_parameters = []
+    param_estimates = []
     for g_n, i_n in factor_df.iter_rows():
         for g_prop in g_props:
-            print(g_n, i_n)
+
             print(f'Running g_n: {g_n}, i_n: {i_n}, g_prop: {g_prop}')
+
+
+            # generate group, individual, and combined values
+            ##################################################
 
             df = get_all_value_combinations(
                 g_n, i_n, g_prop, 
                 generate_uniform_random_floats, generate_uniform_random_floats)
+
+
+            # save data
+            ##################################################
 
             filename_stem = (
                 'gn_' + str(g_n) + 
@@ -277,16 +286,50 @@ def get_results_given_parameters(
                 '_gprop_' + str(g_prop))
             save_dataframe_to_csv_and_parquet(df, filename_stem, output_path)
 
+
+            # get true group proportions and individual parameters
+            ##################################################
+
+            true_g_v_df = (
+                df
+                .select(['g_id', 'g_v'])
+                .group_by('g_id')
+                .first()
+                .with_columns(
+                    pl.concat_str(
+                        'g_' + pl.col('g_id').cast(pl.Utf8)).alias('label'))
+                .select(['label', 'g_v'])
+                .rename({'g_v': 'v'}))
+            true_i_v_df = (
+                df
+                .select(['i_id', 'i_v'])
+                .group_by('i_id')
+                .first()
+                .with_columns(
+                    pl.concat_str(
+                        'i_' + pl.col('i_id').cast(pl.Utf8)).alias('label'))
+                .select(['label', 'i_v'])
+                .rename({'i_v': 'v'}))
+            true_v_df = pl.concat([true_g_v_df, true_i_v_df])
+            # true_v_struct = true_v_df.to_struct()
+            true_v_dict = {e[0]: e[1] for e in true_v_df.iter_rows()}
+            param_true.append(true_v_dict)
+
+
+            # calculate estimates of group proportions and individual parameters
+            ##################################################
+
             metric_summary, individual_params = (
                 get_results_given_parameter_set(g_n, i_n, g_prop, df))
 
             metric_summaries.append(metric_summary)
+
             g_param_names = ['g_' + str(e) for e in range(g_n)]
             i_param_names = ['i_' + str(e) for e in range(i_n)]
             individual_param_names = g_param_names + i_param_names
             individual_params_dict = dict(zip(
                 individual_param_names, individual_params))
-            individual_parameters.append(individual_params_dict)
+            param_estimates.append(individual_params_dict)
 
     colnames = [
         'g_n', 'i_n', 'g_prop', 'g_prop_est', 'error', 'success',
@@ -301,10 +344,14 @@ def get_results_given_parameters(
     #   present in each dictionary
     # (Actually, it might work if all keys are present only in the first
     #   dictionary, but I'll take the uniform approach)
-    g_param_names = ['g_' + str(e) for e in range(factor_df[:, 0].max())]
-    i_param_names = ['i_' + str(e) for e in range(factor_df[:, 1].max())]
+    factor_max_0 = factor_df[:, 0].max()
+    assert isinstance(factor_max_0, int)
+    g_param_names = ['g_' + str(e) for e in range(factor_max_0)]
+    factor_max_1 = factor_df[:, 1].max()
+    assert isinstance(factor_max_1, int)
+    i_param_names = ['g_' + str(e) for e in range(factor_max_1)]
 
-    for param_dict in individual_parameters:
+    for param_dict in param_true:
         for g_param_name in g_param_names:
             if g_param_name not in param_dict:
                 param_dict[g_param_name] = None
@@ -312,8 +359,18 @@ def get_results_given_parameters(
             if i_param_name not in param_dict:
                 param_dict[i_param_name] = None
 
+    for param_dict in param_estimates:
+        for g_param_name in g_param_names:
+            if g_param_name not in param_dict:
+                param_dict[g_param_name] = None
+        for i_param_name in i_param_names:
+            if i_param_name not in param_dict:
+                param_dict[i_param_name] = None
+
+
     metric_df = metric_df.with_columns(
-        pl.Series(individual_parameters).alias('individual_parameters'))
+        pl.Series(param_true).alias('true_parameters'),
+        pl.Series(param_estimates).alias('parameter_estimates'))
 
     return metric_df
 
@@ -392,48 +449,6 @@ def main_analysis(total: int, output_path: Path):
             metric_x_colname, metric_x_colname, 
             metric_y_colname, metric_y_colname, 
             output_path, output_filename)
-
-    # metric_x_colname = 'btwn_var_prop'
-    # metric_y_colname = 'icc2'
-    # output_filename = metric_y_colname + '_by_' + metric_x_colname + '.png'
-    # plot_metric_by_metric(
-    #     result_df, 
-    #     metric_x_colname, metric_x_colname, 
-    #     metric_y_colname, metric_y_colname, 
-    #     output_path, output_filename)
-
-
-    '''
-    metric_y_colname = 'btwn_var_prop'
-    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
-    metric_y_label = 'Between-group variance proportion, ' + metric_y_colname
-    plot_metric_by_group_individual_ratios(
-        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
-
-    metric_y_colname = 'total_var'
-    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
-    metric_y_label = 'Total variance, ' + metric_y_colname
-    plot_metric_by_group_individual_ratios(
-        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
-
-    metric_y_colname = 'icc1'
-    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
-    metric_y_label = 'ICC1, ' + metric_y_colname
-    plot_metric_by_group_individual_ratios(
-        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
-
-    metric_y_colname = 'icc2'
-    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
-    metric_y_label = 'ICC2, ' + metric_y_colname
-    plot_metric_by_group_individual_ratios(
-        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
-
-    metric_y_colname = 'icc3'
-    output_filename = metric_y_colname + '_by_individual_to_group_ratios.png'
-    metric_y_label = 'ICC3, ' + metric_y_colname
-    plot_metric_by_group_individual_ratios(
-        result_df, metric_y_colname, metric_y_label, output_path, output_filename)
-    '''
 
 
 def plot_combined_values_by_group_proportion(output_path: Path):
